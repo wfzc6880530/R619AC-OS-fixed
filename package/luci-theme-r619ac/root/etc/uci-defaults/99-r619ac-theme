@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# V0.6 only installs the lightweight CSS overlay.
+# Do not force the global LuCI theme yet; keep stock theme as the safe default.
+exit 0

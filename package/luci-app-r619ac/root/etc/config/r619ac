@@ -1,0 +1,4 @@
+config r619ac 'main'
+    option version '0.6'
+    option device 'p2w_r619ac-128m'
+    option proxy_engine 'off'

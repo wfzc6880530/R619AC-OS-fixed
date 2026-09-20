@@ -1,0 +1,20 @@
+/* R619AC Personal OS V0.6
+ * Lightweight overlay theme. The full visual theme can be expanded in V0.7.
+ */
+:root {
+    --r619ac-bg: #f5f7fa;
+    --r619ac-card: #ffffff;
+}
+
+body {
+    background: var(--r619ac-bg);
+}
+
+.cbi-map,
+.cbi-section {
+    border-radius: 8px;
+}
+
+.cbi-section {
+    background: var(--r619ac-card);
+}

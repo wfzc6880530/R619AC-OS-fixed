@@ -1,0 +1,11 @@
+{
+    "luci-app-r619ac": {
+        "description": "R619AC Personal OS",
+        "read": {
+            "uci": [ "r619ac" ]
+        },
+        "write": {
+            "uci": [ "r619ac" ]
+        }
+    }
+}
