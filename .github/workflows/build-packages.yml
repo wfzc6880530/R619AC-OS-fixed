@@ -1,0 +1,98 @@
+name: Build OpenWrt Plugins (PassWall/SSR-Plus/NPC)
+
+# 触发方式：手动运行
+# 用途：单独编译 PassWall、SSR-Plus、NPC 三个插件（含全部依赖），
+#       产物为可安装到固件上的 .apk（25.12）或 .ipk（24.10）。
+# 注意：插件编译分支必须与固件分支一致（25.12 配 25.12，24.10 配 24.10）。
+on:
+  workflow_dispatch:
+    inputs:
+      openwrt_branch:
+        description: 'OpenWrt 源码分支（必须与固件一致）'
+        required: true
+        default: 'openwrt-25.12'
+        type: choice
+        options:
+          - openwrt-25.12
+          - openwrt-24.10
+
+jobs:
+  build-packages:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout 仓库
+        uses: actions/checkout@v4
+
+      - name: 安装编译依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang flex bison g++ gawk \
+            gcc-multilib g++-multilib gettext git \
+            libncurses-dev libssl-dev python3-setuptools \
+            rsync swig unzip zlib1g-dev file wget bzip2 cpio \
+            python3 python3-pip python3-ply subversion patch
+
+      - name: 拉取 OpenWrt 源码（与固件同分支）
+        run: |
+          BRANCH="${{ github.event.inputs.openwrt_branch }}"
+          echo ">>> 使用分支: $BRANCH"
+          git clone --depth 1 -b "$BRANCH" \
+            https://github.com/openwrt/openwrt.git openwrt
+
+      - name: 添加第三方软件源（PassWall / SSR-Plus / NPC）
+        working-directory: openwrt
+        run: |
+          cat >> feeds.conf.default <<'EOF'
+          src-git small https://github.com/kenzok8/small.git
+          src-git npsow https://github.com/djylb/nps-openwrt.git
+          EOF
+
+      - name: 导入插件编译配置
+        run: cp packages.config openwrt/.config
+
+      - name: 更新并安装 feeds（软件包源）
+        working-directory: openwrt
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: 生成完整配置
+        working-directory: openwrt
+        run: make defconfig
+
+      - name: 预下载插件源码包（失败自动降级重试一次）
+        working-directory: openwrt
+        run: |
+          make package/luci-app-passwall/download \
+               package/luci-app-ssr-plus/download \
+               package/luci-app-npc/download \
+               package/npc/download -j$(nproc) \
+            || make package/luci-app-passwall/download \
+                 package/luci-app-ssr-plus/download \
+                 package/luci-app-npc/download \
+                 package/npc/download -j1 V=s
+
+      - name: 编译插件（依赖自动一并编译）
+        working-directory: openwrt
+        run: |
+          make package/luci-app-passwall/compile \
+               package/luci-app-ssr-plus/compile \
+               package/luci-app-npc/compile \
+               package/npc/compile -j$(nproc) V=s
+
+      - name: 收集插件包
+        working-directory: openwrt
+        run: |
+          mkdir -p ../plugin-output
+          find bin/packages -type f \( -name '*.apk' -o -name '*.ipk' \) \
+            -exec cp {} ../plugin-output/ \;
+          echo ">>> 产物清单："
+          ls -lh ../plugin-output/
+
+      - name: 上传插件包
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-plugins
+          path: plugin-output/
+          if-no-files-found: error
