@@ -1,4 +1,4 @@
-name: Build OpenWrt Plugins
+name: Build OpenWrt Plugins (PassWall/SSR-Plus/NPC)
 
 # 触发方式：手动运行
 # 用途：单独编译 PassWall、SSR-Plus、NPC 三个插件（含全部依赖），
@@ -15,6 +15,11 @@ on:
         options:
           - openwrt-25.12
           - openwrt-24.10
+      verbose:
+        description: '详细日志（记录每条编译命令，排查时勾选）'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build-packages:
@@ -77,15 +82,23 @@ jobs:
             || make package/luci-app-passwall/download \
                  package/luci-app-ssr-plus/download \
                  package/luci-app-npc/download \
-                 package/npc/download -j1 V=s
+                 package/npc/download -j1
 
-      - name: 编译插件（依赖自动一并编译）
+      - name: 编译插件（日志写入文件，页面只显示错误/警告）
         working-directory: openwrt
         run: |
-          make package/luci-app-passwall/compile \
+          VERBOSE=""
+          if [ "${{ github.event.inputs.verbose }}" = "true" ]; then VERBOSE="V=s"; fi
+          if ! make package/luci-app-passwall/compile \
                package/luci-app-ssr-plus/compile \
                package/luci-app-npc/compile \
-               package/npc/compile -j$(nproc) V=s
+               package/npc/compile -j$(nproc) $VERBOSE >build.stdout.log 2>build.stderr.log; then
+            echo "===== 编译失败，stderr 最后 150 行 ====="
+            tail -n 150 build.stderr.log
+            exit 1
+          fi
+          echo "编译成功。警告数: $(grep -ci 'warning' build.stderr.log || echo 0)"
+          echo "完整日志已保存为构建产物中的 build.stdout.log / build.stderr.log"
 
       - name: 收集插件包
         working-directory: openwrt
@@ -100,5 +113,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: openwrt-plugins
-          path: plugin-output/
+          path: |
+            plugin-output/
+            openwrt/build.stdout.log
+            openwrt/build.stderr.log
           if-no-files-found: error
