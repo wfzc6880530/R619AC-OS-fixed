@@ -1,4 +1,4 @@
-name: Build OpenWrt Plugins (PassWall/SSR-Plus/NPC)
+name: Build OpenWrt Plugins
 
 # 触发方式：手动运行
 # 用途：单独编译 PassWall、SSR-Plus、NPC 三个插件（含全部依赖），
@@ -60,6 +60,12 @@ jobs:
       - name: 生成完整配置
         working-directory: openwrt
         run: make defconfig
+
+      - name: 构建主机工具与工具链（编译插件的前置依赖）
+        working-directory: openwrt
+        run: |
+          make tools/install -j$(nproc)
+          make toolchain/install -j$(nproc)
 
       - name: 预下载插件源码包（失败自动降级重试一次）
         working-directory: openwrt
