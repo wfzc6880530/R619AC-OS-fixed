@@ -2,20 +2,9 @@ name: Build OpenWrt for P&W R619AC 128M
 
 # 触发方式：
 #   1) 手动: Actions 页面 -> 左侧 Build OpenWrt for P&W R619AC 128M -> Run workflow
-#      运行前可在下拉框选择 OpenWrt 版本（默认 25.12 当前稳定版）
-#   2) 自动: push 到 main/master 且改动涉及 .config / workflow / 自定义文件时（默认用 25.12）
+#   2) 自动: push 到 main/master 且改动涉及 .config / workflow / 自定义文件时
 on:
   workflow_dispatch:
-    inputs:
-      openwrt_branch:
-        description: 'OpenWrt 源码分支'
-        required: true
-        default: 'openwrt-25.12'
-        type: choice
-        options:
-          - openwrt-25.12
-          - openwrt-24.10
-          - openwrt-23.05
   push:
     branches: [ main, master ]
     paths:
@@ -42,12 +31,18 @@ jobs:
             rsync swig unzip zlib1g-dev file wget bzip2 cpio \
             python3 python3-pip python3-ply subversion patch
 
-      - name: 拉取 OpenWrt 源码（版本可手动选择）
+      - name: 拉取 OpenWrt 25.12 稳定版源码
         run: |
-          BRANCH="${{ github.event.inputs.openwrt_branch || 'openwrt-25.12' }}"
-          echo ">>> 使用分支: $BRANCH"
-          git clone --depth 1 -b "$BRANCH" \
+          git clone --depth 1 -b openwrt-25.12 \
             https://github.com/openwrt/openwrt.git openwrt
+
+      - name: 添加第三方软件源（PassWall / SSR-Plus / NPC）
+        working-directory: openwrt
+        run: |
+          cat >> feeds.conf.default <<'EOF'
+          src-git small https://github.com/kenzok8/small.git
+          src-git npsow https://github.com/djylb/nps-openwrt.git
+          EOF
 
       - name: 导入设备配置
         run: cp .config openwrt/.config
@@ -83,3 +78,4 @@ jobs:
           path: |
             openwrt/bin/targets/ipq40xx/generic/*
           if-no-files-found: error
+#（注：内容由AI生成）
